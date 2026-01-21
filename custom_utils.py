@@ -28,7 +28,7 @@ def imread_custom(image_path, options=cv2.IMREAD_UNCHANGED):
 if __name__ == "__main__":
     # Example usage
     image_folder = Path("./data/images")
-    image_file = "scanned-form.jpg"  # Replace with your image path
+    image_file = "times-square.jpg"  # Replace with your image path
     image_path = image_folder / image_file
     start_time = time()
     image = imread_custom(image_path)
