@@ -32,14 +32,14 @@ if __name__ == "__main__":
     image_file = "times-square.jpg"  # Replace with your image path
     image_path = image_folder / image_file
     start_time = time()
-    image = imread_custom(image_path)
+    image = imread_custom(image_path, cv2.IMREAD_GRAYSCALE)
     end_time = time()
     print(f"Custom function time taken to read image: {end_time - start_time:.6f} seconds")
     cv2.imshow("Image custom load", image)
     cv2.waitKey(0)
 
     start_time = time()
-    image_cv2 = cv2.imread(str(image_path), cv2.IMREAD_UNCHANGED)
+    image_cv2 = cv2.imread(str(image_path), cv2.IMREAD_GRAYSCALE)
     end_time = time()
     print(f"cv2.imread time taken to read image: {end_time - start_time:.6f} seconds")
     cv2.imshow("Image using cv2.imread", image_cv2)
