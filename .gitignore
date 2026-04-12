@@ -149,6 +149,8 @@ activemq-data/
 
 # Environments
 .UTILS_ENV/
+data/models/
+data/private/
 .env
 .envrc
 .venv
