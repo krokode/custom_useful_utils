@@ -1,0 +1,536 @@
+import os
+import sys
+ROOT_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
+if ROOT_DIR not in sys.path:
+    sys.path.insert(0, ROOT_DIR)
+
+import cv2
+import numpy as np
+from custom_utils import imread_custom
+from ultralytics import YOLO
+
+class Filters():
+    """
+    A class that applies various Instagram-like filters to images and videos using OpenCV.
+    This class supports real-time video processing from a webcam or video file, as well as static image processing. It includes filters such as cartoon, cartoon stylization, pencil sketch, skin smoothing, and a fun sunglasses overlay. The class is designed to be flexible and efficient, with pre-loaded Haar Cascades for face and eye detection to optimize performance during video processing.
+    Attributes:
+        glasses_path (str): Path to the sunglasses image for the sunglasses filter.
+        reflection_path (str): Path to the reflection image for the sunglasses filter.
+        source (str or int): The source of the video stream or image. Can be a file path or an integer for webcam.
+        width (int): Width of the video frames or loaded image.
+        height (int): Height of the video frames or loaded image.
+
+        face_cascade (cv2.CascadeClassifier): Haar Cascade for face detection.
+        eye_cascade (cv2.CascadeClassifier): Haar Cascade for eye detection.
+    Methods:
+        apply_cartoon_filter(frame): Applies a cartoon filter to the input frame.
+        apply_cartoon_stylized_filter(frame): Applies a cartoon stylization filter to the input frame.
+        apply_pencil_sketch_filter(frame): Applies a pencil sketch filter to the input frame.
+        apply_skin_smoothing_filter(frame): Applies a skin smoothing filter to the input frame.
+        _create_sunglasses_overlay(width, height): Creates a transparent sunglasses overlay programmatically if no sunglasses are provided.
+        apply_sunglasses_filter(frame, reflection=False, transparency=0.5): Applies a sunglasses filter to the input frame.
+        start_filters(filter, sigma_s, sigma_r, shade_factor, reflection=False, transparency=0.5): Starts the video stream or displays the image with the selected filter applied.
+        selected_filter_action(filter_type, frame, sigma_s, sigma_r, shade_factor, reflection=False, transparency=0.5): Helper method to apply the selected filter based on the filter type.
+    """
+    def __init__(self, glasses_path, reflection_path, source, width=640, height=480):
+        # Load Haar Cascades once during initialization to save performance during video loop
+        self.face_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_frontalface_default.xml')
+        self.eye_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_eye.xml')
+        if glasses_path:
+            self.glasses = imread_custom(glasses_path)
+        else:
+            self.glasses = None
+
+        if reflection_path:
+            self.reflection_img = imread_custom(reflection_path)
+        else:
+            self.reflection_img = None
+
+        if isinstance(source, int) or source.split('.')[-1].lower() in ['mp4', 'avi', 'mov', 'mkv', 'flv', 'wmv']:
+            self.width = width
+            self.height = height
+            self.is_image = False
+            self.cap = cv2.VideoCapture(source)
+            self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, self.width)
+            self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, self.height)
+        elif source.lower() in ['webcam', 'camera']:
+            self.width = width
+            self.height = height
+            self.is_image = False
+            self.cap = cv2.VideoCapture(0)
+            self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, self.width)
+            self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, self.height)
+        elif source.split('.')[-1].lower() in ['jpg', 'jpeg', 'png', 'bmp', 'tiff', 'gif', 'webp']:
+            self.image = imread_custom(source)
+            self.width = self.image.shape[1]
+            self.height = self.image.shape[0]
+            self.is_image = True
+        else:
+            raise ValueError("Unsupported source type. Please provide a valid video file, webcam, or image file.")
+
+    def apply_cartoon_filter(self, frame):
+        """
+        Apply a cartoon filter to the input frame.
+        This method converts the input frame to grayscale, applies a median blur, and then uses adaptive thresholding to create a cartoon effect by combining the edges with a bilateral filter for color smoothing.
+        Args:            frame (numpy.ndarray): The input image frame (BGR format).
+        Returns:            numpy.ndarray: The output image frame with the cartoon effect applied.
+        """
+        gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+        gray = cv2.medianBlur(gray, 5)
+        edges = cv2.adaptiveThreshold(gray, 255,cv2.ADAPTIVE_THRESH_MEAN_C,cv2.THRESH_BINARY,5,2)
+        color = cv2.bilateralFilter(frame, 9, 300, 300)
+        cartoon = cv2.bitwise_and(color, color, mask=edges)
+        return cartoon
+    
+    def apply_cartoon_stylized_filter(self, frame):
+        """
+        Apply a cartoon stylization filter to the input frame.
+        This method uses OpenCV's built-in stylization function to create a cartoon-like effect by smoothing the image while preserving edges.
+        Args:            frame (numpy.ndarray): The input image frame (BGR format).
+        Returns:            numpy.ndarray: The output image frame with the cartoon stylization effect applied.
+        """
+        cartoon_stylized = cv2.stylization(frame, sigma_s=200, sigma_r=0.1)
+        return cartoon_stylized
+
+    def apply_pencil_sketch_filter(self, frame):
+        """
+        Apply a pencil sketch filter to the input frame.
+        This method converts the input frame to grayscale, applies a Gaussian blur, and then uses adaptive thresholding to create a pencil sketch effect.
+        Args:            frame (numpy.ndarray): The input image frame (BGR format).
+        Returns:            numpy.ndarray: The output image frame with the pencil sketch effect applied.
+        """
+        # gray, color = cv2.pencilSketch(frame, sigma_s=100, sigma_r=0.05, shade_factor=0.08)
+        gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+        blur = cv2.GaussianBlur(gray, (7,7), 0)
+        edges = cv2.adaptiveThreshold(blur, 255, cv2.ADAPTIVE_THRESH_MEAN_C,cv2.THRESH_BINARY,5,2)
+        pencilSketchImage = cv2.cvtColor(edges, cv2.COLOR_GRAY2BGR)
+        return pencilSketchImage
+
+    def apply_skin_smoothing_filter(self, frame):
+        gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+        faces = self.face_cascade.detectMultiScale(gray, 1.3, 5)
+        result = frame.copy()
+
+        for (x, y, w, h) in faces:
+            # Create a soft elliptical mask to avoid smoothing hair/background
+            mask = np.zeros((h, w), dtype=np.uint8)
+            cv2.ellipse(mask, (w//2, h//2), (int(w*0.4), int(h*0.5)), 0, 0, 360, 255, -1)
+            mask = cv2.GaussianBlur(mask, (21, 21), 0) / 255.0 # Soft edges
+
+            roi = result[y:y+h, x:x+w]
+            
+            # Strong smoothing that preserves edges (Bilateral)
+            smoothed_roi = cv2.bilateralFilter(roi, 15, 80, 80)
+
+            # Blend smoothed version with original based on the mask
+            for c in range(3):
+                roi[:, :, c] = (smoothed_roi[:, :, c] * mask + roi[:, :, c] * (1 - mask)).astype(np.uint8)
+
+            result[y:y+h, x:x+w] = roi
+                
+        return result
+
+    def _create_sunglasses_overlay(self, width, height):
+        """Programmatically creates a transparent sunglasses overlay to avoid missing file errors"""
+        overlay = np.zeros((height, width, 4), dtype=np.uint8)
+        
+        # Draw left lens
+        cv2.ellipse(overlay, (width//4, height//2), (width//5, height//2), 0, 0, 360, (0, 0, 0, 220), -1)
+        # Draw right lens
+        cv2.ellipse(overlay, (3*width//4, height//2), (width//5, height//2), 0, 0, 360, (0, 0, 0, 220), -1)
+        # Draw bridge connecting lenses
+        cv2.line(overlay, (width//4 + width//5, height//2), (3*width//4 - width//5, height//2), (0, 0, 0, 220), max(2, height//10))
+        # Draw arms of glasses
+        cv2.line(overlay, (0, height//2), (width//4 - width//5, height//2), (0, 0, 0, 220), max(2, height//10))
+        cv2.line(overlay, (3*width//4 + width//5, height//2), (width, height//2), (0, 0, 0, 220), max(2, height//10))
+        
+        return overlay
+        
+    def apply_sunglasses_filter(self, frame, reflection=False, transparency=0.5):
+        """
+        Apply a sunglasses filter to the input frame.
+        """
+        gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+        faces = self.face_cascade.detectMultiScale(gray, 1.3, 5)
+        result = frame.copy()
+
+        for (x, y, w, h) in faces:
+            eye_y_level = int(y + h * 0.42)
+                
+            glasses_width = int(w * 0.9)
+            glasses_height = int(glasses_width * 0.4)
+                
+            start_x = x + (w - glasses_width) // 2
+            start_y = eye_y_level - (glasses_height // 2)
+                
+            end_x = min(result.shape[1], start_x + glasses_width)
+            end_y = min(result.shape[0], start_y + glasses_height)
+            start_x = max(0, start_x)
+            start_y = max(0, start_y)
+
+            if start_x >= end_x or start_y >= end_y:
+                continue
+
+            roi_glasses = result[start_y:end_y, start_x:end_x]
+            h_g, w_g = roi_glasses.shape[:2]
+            if self.glasses is not None:
+                sunglasses = cv2.resize(self.glasses, (w_g, h_g))
+            else:
+                sunglasses = self._create_sunglasses_overlay(w_g, h_g)
+
+            alpha = sunglasses[:, :, 3] / 255.0
+            alpha = alpha * transparency
+            
+            for c in range(3):
+                result[start_y:end_y, start_x:end_x, c] = (
+                    alpha * sunglasses[:, :, c] + (1.0 - alpha) * result[start_y:end_y, start_x:end_x, c]
+                ).astype(np.uint8)
+            
+            if reflection:
+                # Takes result, flips it horizontally, and blends it back onto the glasses area to simulate a reflection effect
+                if self.reflection_img is not None:
+                    resized_reflection = cv2.resize(self.reflection_img, (w_g, h_g))
+                else:
+                    flipped_result = cv2.flip(result, 1)
+                    resized_reflection = cv2.resize(flipped_result, (w_g, h_g))
+                apply_resized_reflection_on_glasses = (alpha[:, :, np.newaxis] * resized_reflection + (1 - alpha[:, :, np.newaxis]) * result[start_y:end_y, start_x:end_x]).astype(np.uint8) 
+                
+                for c in range(3):
+                    result[start_y:end_y, start_x:end_x, c] = (
+                        alpha * apply_resized_reflection_on_glasses[:, :, c] + (1.0 - alpha) * result[start_y:end_y, start_x:end_x, c]
+                    ).astype(np.uint8)
+
+        return result    
+
+    def start_filters(self, filter=None, sigma_s=None, sigma_r=None, shade_factor=None, reflection=False, transparency=0.5):
+        """
+        Start the video stream or display the image with the selected filter applied.
+        Args:
+            filter (str): The name of the filter to apply. Options: 'cartoon', 'cartoon_stylized', 'pencil', 'skin', 'sunglasses'. If None, no filter is applied.
+            sigma_s (float): Parameter for stylization and pencil sketch filters that controls the size of the neighborhood used for filtering. Higher values result in a more pronounced effect.
+            sigma_r (float): Parameter for stylization and pencil sketch filters that controls the range of colors to be smoothed together. Higher values result in more smoothing across different colors.
+            shade_factor (float): Parameter for pencil sketch filter that controls the intensity of the shading. Higher values result in darker shading. Default is 0.08.
+            reflection (bool): Whether to add a reflection effect to the sunglasses filter. Default is False.
+            transparency (float): The transparency level for the sunglasses filter, between 0 (fully transparent) and 1 (fully opaque). Default is 0.5.
+        """
+        if not self.is_image:
+            filter_type = filter.lower() if filter else None
+            while True:
+                ret, frame = self.cap.read()
+                if not ret:
+                    break
+                # Flip frame horizontally for a mirror effect (standard for webcam)
+                frame = cv2.flip(frame, 1) 
+                filtered_frame = self.selected_filter_action(filter_type, frame, sigma_s, sigma_r, shade_factor, reflection=reflection, transparency=transparency)
+                cv2.imshow(f'{filter_type.capitalize() if filter_type else "Original"} Video', filtered_frame)    
+                if cv2.waitKey(1) & 0xFF == ord('q'):
+                    break
+            self.cap.release()
+        else:
+            filter_type = filter.lower() if filter else None
+            filtered_image = self.selected_filter_action(filter_type, self.image, sigma_s, sigma_r, shade_factor, reflection=reflection, transparency=transparency)
+            cv2.imshow(f'{filter_type.capitalize() if filter_type else "Original"} Image', filtered_image)
+            cv2.waitKey(0)
+            
+        cv2.destroyAllWindows()
+
+    def selected_filter_action(self, filter_type, frame, sigma_s, sigma_r, shade_factor, reflection=False, transparency=0.5):
+        """
+        Apply the selected filter to the given frame.
+        Args:
+            filter_type (str): The type of filter to apply.
+            frame (numpy.ndarray): The input frame.
+            sigma_s (float): Parameter for stylization and pencil sketch filters that controls the size of the neighborhood used for filtering.
+            sigma_r (float): Parameter for stylization and pencil sketch filters that controls the range of colors to be smoothed together.
+            shade_factor (float): Parameter for pencil sketch filter that controls the intensity of the shading.
+            reflection (bool): Whether to add a reflection effect to the sunglasses filter.
+            transparency (float): The transparency level for the sunglasses filter.
+        Returns:
+            numpy.ndarray: The filtered frame.
+        """
+        if filter_type == "cartoon":
+            filtered_frame = self.apply_cartoon_filter(frame)
+        elif filter_type == "cartoon_stylized":
+            if sigma_s is not None and sigma_r is not None:
+                filtered_frame = cv2.stylization(frame, sigma_s=sigma_s, sigma_r=sigma_r)
+            else:
+                filtered_frame = self.apply_cartoon_stylized_filter(frame)
+        elif filter_type == "pencil":
+            if sigma_s is not None and sigma_r is not None:
+                gray, color = cv2.pencilSketch(frame, sigma_s=sigma_s, sigma_r=sigma_r, shade_factor=shade_factor if shade_factor else 0.08)
+                filtered_frame = gray
+            else:
+                filtered_frame = self.apply_pencil_sketch_filter(frame)
+        elif filter_type == "skin":
+            filtered_frame = self.apply_skin_smoothing_filter(frame)
+        elif filter_type == "sunglasses":
+            filtered_frame = self.apply_sunglasses_filter(frame, reflection=reflection, transparency=transparency)
+        else:
+            filtered_frame = frame        
+        return filtered_frame
+
+
+# Blemish Removal 
+class Blemish():
+    def __init__(self, image_path):
+        self.image = imread_custom(image_path)
+
+    def remove_seamlessly(self, xy, w, h):
+        x, y = xy
+        mask = 255 * np.ones(self.image[y:y+h, x:x+w].shape, self.image.dtype)
+        center = (x + w // 2, y + h // 2)
+        output = cv2.seamlessClone(self.image[y:y+h, x:x+w], self.image, mask, center, cv2.NORMAL_CLONE)
+        self.image[y:y+h, x:x+w] = output[y:y+h, x:x+w]
+        return self.image
+
+    def remove_inpaint_blemish(self, xy, w, h):
+        x, y = xy
+        # Create a black mask the same size as the full image
+        mask = np.zeros(self.image.shape[:2], dtype=np.uint8)
+        
+        # Draw a white circle or rectangle on the mask at the blemish location
+        # Using a circle often yields smoother results for blemishes
+        radius = max(w, h) // 2
+        cv2.circle(mask, (x + w//2, y + h//2), radius, 255, -1)
+        
+        # Inpaint the entire image using that mask
+        # Note: self.image and mask now have matching dimensions
+        self.image = cv2.inpaint(self.image, mask, 3, cv2.INPAINT_NS)
+        
+        return self.image
+
+# Utility Class for Mouse Handling
+class MouseHandler():
+    def __init__(self, window_name, maxpoints=None):
+        self.maxpoints = maxpoints
+        self.window_name = window_name
+        self.points = []
+        cv2.namedWindow(self.window_name)
+        cv2.setMouseCallback(self.window_name, self.mouse_callback)
+
+    def mouse_callback(self, event, x, y, flags, param):
+        """
+        Handle mouse events for point selection.
+        Adds points on left click if under maxpoints limit.
+        Draws a green circle at the clicked point if param (image) is provided.
+        """
+        if event == cv2.EVENT_LBUTTONDOWN:
+            if self.maxpoints is None or len(self.points) < self.maxpoints:
+                self.points.append((x, y))
+                if param is not None:
+                    cv2.circle(param, (x, y), 5, (0, 255, 0), -1)
+                    cv2.imshow(self.window_name, param)
+            else:
+                print("Maximum points reached.")
+
+class DocumentScanner():
+    def __init__(self, image_path, manual_selection=False):
+        self.image = imread_custom(image_path)
+        self.clone = self.image.copy()
+        self.manual_selection = manual_selection
+        if self.manual_selection:
+            self.mouse_handler = MouseHandler("Select Document Corners", maxpoints=4)
+        else:
+            self.mouse_handler = None
+
+    def get_document_corners(self):
+        while True:
+            cv2.imshow("Select Document Corners", self.clone)
+            if len(self.mouse_handler.points) == 4:
+                break
+            if cv2.waitKey(1) & 0xFF == ord('q'):
+                break
+        cv2.destroyAllWindows()
+        return self.mouse_handler.points
+    
+    def order_points(self, pts):
+        rect = np.zeros((4, 2), dtype="float32")
+        s = pts.sum(axis=1)
+        rect[0] = pts[np.argmin(s)]
+        rect[2] = pts[np.argmax(s)]
+        diff = np.diff(pts, axis=1)
+        rect[1] = pts[np.argmin(diff)]
+        rect[3] = pts[np.argmax(diff)]
+        return rect
+    
+    def contour_detection(self):
+        gray = cv2.cvtColor(self.image, cv2.COLOR_BGR2GRAY)
+        blurred = cv2.GaussianBlur(gray, (5, 5), 0)
+        edged = cv2.Canny(blurred, 75, 200)
+        contours, _ = cv2.findContours(edged.copy(), cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE)
+        contours = sorted(contours, key=cv2.contourArea, reverse=True)[:5]
+        for contour in contours:
+            peri = cv2.arcLength(contour, True)
+            approx = cv2.approxPolyDP(contour, 0.02 * peri, True)
+            if len(approx) == 4:
+                return approx.reshape(4, 2)
+        return None
+    
+    def four_point_transform(self, pts):
+        rect = self.order_points(pts)
+        (tl, tr, br, bl) = rect
+        widthA = np.linalg.norm(br - bl)
+        widthB = np.linalg.norm(tr - tl)
+        maxWidth = max(int(widthA), int(widthB))
+        heightA = np.linalg.norm(tr - br)
+        heightB = np.linalg.norm(tl - bl)
+        maxHeight = max(int(heightA), int(heightB))
+        dst = np.array([[0, 0], [maxWidth - 1, 0], [maxWidth - 1, maxHeight - 1], [0, maxHeight - 1]], dtype="float32")
+        M = cv2.getPerspectiveTransform(rect, dst)
+        warped = cv2.warpPerspective(self.image, M, (maxWidth, maxHeight))
+        return warped
+    
+    def run_scanner(self, use_contour_detection=True):
+        corners = None
+        
+        if use_contour_detection:
+            corners = self.contour_detection()
+        
+        # If auto-detection was skipped OR it failed to find 4 points
+        if corners is None:
+            print("Switching to manual selection...")
+            # Initialize handler only when needed to save resources
+            self.mouse_handler = MouseHandler("Select Document Corners", maxpoints=4)
+            corners = self.get_document_corners()
+        
+        # Final check and transform
+        if corners is not None and len(corners) == 4:
+            # Ensure corners are a float32 numpy array for OpenCV
+            pts = np.array(corners, dtype="float32")
+            return self.four_point_transform(pts)
+        
+        print("Scanning cancelled or failed.")
+        return None
+    
+    def post_process(self, warped):
+        gray = cv2.cvtColor(warped, cv2.COLOR_BGR2GRAY)
+        # T stands for 'Thresholded'
+        T = cv2.adaptiveThreshold(gray, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, 
+                                cv2.THRESH_BINARY, 11, 10)
+        return T
+
+
+class BallTracker:
+    def __init__(self, model_path='yolov8s.pt'):
+        self.model = YOLO(model_path) 
+        self.tracker = None
+        self.is_tracking = False
+        self.bbox = None
+        self.status = "Initializing"
+        self.frame_count = 0 
+        self.redetect_interval = 30 # Force YOLO every 30 frames to prevent drift
+
+    def get_tracker(self, tracker_type='CSRT'):
+        # Try to get the better trackers first, fallback to MIL
+        if tracker_type == 'CSRT' and hasattr(cv2, 'TrackerCSRT_create'):
+            return cv2.TrackerCSRT_create()
+        if tracker_type == 'KCF' and hasattr(cv2, 'TrackerKCF_create'):
+            return cv2.TrackerKCF_create()
+        return cv2.TrackerMIL_create()
+
+    def detect_and_track(self, frame, class_id=32, tracker_name='CSRT'):
+        self.frame_count += 1
+        
+        if self.frame_count % self.redetect_interval == 0:
+            self.is_tracking = False
+
+        if not self.is_tracking:
+            # DETECTION STATE (Blue)
+            results = self.model.predict(frame, conf=0.4, classes=[class_id], verbose=False)
+            boxes = results[0].boxes.xyxy.cpu().numpy()
+            
+            if len(boxes) > 0:
+                x1, y1, x2, y2 = boxes[0]
+                x, y, w, h = int(x1), int(y1), int(x2 - x1), int(y2 - y1)
+                
+                # Clamp bbox to frame boundaries and ensure positive dimensions
+                h_frame, w_frame = frame.shape[:2]
+                x = max(0, min(x, w_frame - 1))
+                y = max(0, min(y, h_frame - 1))
+                w = max(20, min(w, w_frame - x))
+                h = max(20, min(h, h_frame - y))
+                
+                self.bbox = (x, y, w, h)
+                
+                self.tracker = self.get_tracker(tracker_type=tracker_name)
+                self.tracker.init(frame, self.bbox) 
+                self.is_tracking = True
+                self.status = "Detection (Blue)"
+                return self.bbox, (255, 0, 0) # BLUE
+            
+            self.status = "Searching..."
+            return None, (0, 0, 255)
+
+        else:
+            # TRACKING STATE (Green)
+            success, new_bbox = self.tracker.update(frame)
+            
+            # Check if the tracker went out of bounds or failed
+            if success:
+                self.bbox = new_bbox
+                self.status = "Tracking (Green)"
+                return self.bbox, (0, 255, 0) # GREEN
+            else:
+                self.is_tracking = False 
+                self.status = "Lost - Redetecting"
+                return None, (0, 0, 255)
+
+
+if __name__ == '__main__':
+    # cap = cv2.VideoCapture("soccer-ball.mp4")
+    # soccer_tracker = BallTracker()
+
+    # while cap.isOpened():
+    #     ret, frame = cap.read()
+    #     if not ret: break
+        
+    #     bbox, color = soccer_tracker.detect_and_track(frame, class_id=32)
+        
+    #     if bbox is not None:
+    #         x, y, w, h = [int(v) for v in bbox]
+    #         # Draw box and status
+    #         cv2.rectangle(frame, (x, y), (x + w, y + h), color, 2)
+    #         cv2.putText(frame, soccer_tracker.status, (x, y - 10), 
+    #                     cv2.FONT_HERSHEY_SIMPLEX, 0.5, color, 2)
+        
+    #     cv2.imshow("Soccer Detection & Tracking", frame)
+    #     if cv2.waitKey(1) & 0xFF == ord('q'): break
+
+    # cap.release()
+    # cv2.destroyAllWindows()
+    
+    # # #Initialize the scanner
+    # image_path = "scanned-form.jpg"  # Replace with your document image path
+    # output_path = "scanned-form-processed.jpg"  # Output path for the scanned image
+    # scanner = DocumentScanner(image_path, manual_selection=False)
+    
+    # # Run the detection and transformation
+    # warped = scanner.run_scanner(use_contour_detection=True)
+    
+    # if warped is not None:
+    #     final_scan = scanner.post_process(warped)
+        
+    #     cv2.imshow("Final Scanned Document", final_scan)
+        
+    #     # Save to disk
+    #     cv2.imwrite(output_path, final_scan)
+        
+    #     print("Press any key to close the window.")
+    #     cv2.waitKey(0)
+    #     cv2.destroyAllWindows()
+    # else:
+    #     print("Scanner failed to produce an image.")
+
+
+    source = "musk.jpg" # 0  # Use 0 for webcam, or replace with video file path like 'video.mp4', or image file path like 'image.jpg'
+    glusses_path = "sunglass.png"
+    reflect_img = None # "reflection.jpg"
+
+    filter = Filters(glusses_path, reflect_img, source)
+    
+    # Change the string to test different features: 
+    filters_list = ['cartoon', 'cartoon_stylized', 'pencil', 'skin', 'sunglasses', None]
+    selected_filter = filters_list[4] 
+    
+    print(f"Applying {selected_filter} filter. Press 'q' to quit.")
+    filter.start_filters(filter=selected_filter, reflection=True, transparency=0.7)
