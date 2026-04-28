@@ -9,20 +9,32 @@ load_dotenv()
 
 username = os.getenv("GITHUB_USERNAME")
 
+try:
+    token = os.getenv("GITHUB_TOKEN")
+except:
+    token = None
+
+if token:
+    headers = {
+        "Authorization": f"token {token}"
+    }
+else:
+    headers = None
+
 followers = []
 page = 1
 
 followers_dir = "followers"
 os.makedirs(followers_dir, exist_ok=True)
 
-def get_followers(username, page):
+def get_followers(username, page, headers=None):
     url = f"https://api.github.com/users/{username}/followers?per_page=100&page={page}"
-    response = requests.get(url).json()
+    response = requests.get(url, headers=headers).json()
     return response
 
 if __name__ == "__main__":
     while True:
-        response = get_followers(username, page)
+        response = get_followers(username, page, headers=headers)
     
         if not response:
             break
