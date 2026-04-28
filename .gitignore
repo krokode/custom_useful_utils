@@ -1,3 +1,7 @@
+# Sensitive information
+GitHub_Utils/following/
+GitHub_Utils/followers/
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[codz]
