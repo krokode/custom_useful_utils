@@ -6,8 +6,6 @@ following_dir = "following"
 os.makedirs(followers_dir, exist_ok=True)
 os.makedirs(following_dir, exist_ok=True)
 
-old_file = followers_dir + "/" + "followers2026-04-28.json"  # Change this to the previous followers or following file
-new_file = followers_dir + "/" + "followers2026-04-29.json"  # Change this to the new followers or following file
 
 def compare_followers(old_file, new_file):
     with open(old_file, "r") as f:
@@ -26,4 +24,7 @@ def compare_followers(old_file, new_file):
     print("Removed List:", [f for f in followers_removed])
 
 if __name__ == "__main__":
+    old_file = followers_dir + "/" + "followers2026-04-28.json"  # Change this to the previous followers or following file
+    new_file = followers_dir + "/" + "followers2026-04-29.json"  # Change this to the new followers or following file
+
     compare_followers(old_file, new_file)
