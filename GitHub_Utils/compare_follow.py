@@ -25,6 +25,6 @@ def compare_followers(old_file, new_file):
 
 if __name__ == "__main__":
     old_file = followers_dir + "/" + "followers2026-04-28.json"  # Change this to the previous followers or following file
-    new_file = followers_dir + "/" + "followers2026-04-29.json"  # Change this to the new followers or following file
+    new_file = followers_dir + "/" + "followers2026-04-30.json"  # Change this to the new followers or following file
 
     compare_followers(old_file, new_file)
