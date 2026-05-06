@@ -1,5 +1,7 @@
 import os
 import sys
+
+import requests
 ROOT_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 if ROOT_DIR not in sys.path:
     sys.path.insert(0, ROOT_DIR)
@@ -19,9 +21,12 @@ class Filters():
         source (str or int): The source of the video stream or image. Can be a file path or an integer for webcam.
         width (int): Width of the video frames or loaded image.
         height (int): Height of the video frames or loaded image.
-
         face_cascade (cv2.CascadeClassifier): Haar Cascade for face detection.
         eye_cascade (cv2.CascadeClassifier): Haar Cascade for eye detection.
+        glasses (numpy.ndarray): The loaded sunglasses image, if provided.
+        reflection_img (numpy.ndarray): The loaded reflection image, if provided.
+        is_image (bool): Flag to indicate if the source is an image or video.
+        model: default is None, if True loads the YOLO model for face detection, otherwise uses Haar Cascades as a fallback.
     Methods:
         apply_cartoon_filter(frame): Applies a cartoon filter to the input frame.
         apply_cartoon_stylized_filter(frame): Applies a cartoon stylization filter to the input frame.
@@ -31,8 +36,14 @@ class Filters():
         apply_sunglasses_filter(frame, reflection=False, transparency=0.5): Applies a sunglasses filter to the input frame.
         start_filters(filter, sigma_s, sigma_r, shade_factor, reflection=False, transparency=0.5): Starts the video stream or displays the image with the selected filter applied.
         selected_filter_action(filter_type, frame, sigma_s, sigma_r, shade_factor, reflection=False, transparency=0.5): Helper method to apply the selected filter based on the filter type.
+        _download_yolo_model(): Downloads the YOLO model for face detection if it does not exist locally.
+        
+        face_detection(frame): Detects faces in the input frame using the YOLO model and returns bounding boxes.
+        face_blurring_filter(frame): Applies a blurring filter to detected faces in the input frame.
+        face_detection_Haar(frame): Detects faces using Haar Cascades (as a fallback if YOLO is not used).
+              
     """
-    def __init__(self, glasses_path, reflection_path, source, width=640, height=480):
+    def __init__(self, source, glasses_path=None, reflection_path=None, width=640, height=480, model=False, model_size='n'):
         # Load Haar Cascades once during initialization to save performance during video loop
         self.face_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_frontalface_default.xml')
         self.eye_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_eye.xml')
@@ -67,6 +78,103 @@ class Filters():
             self.is_image = True
         else:
             raise ValueError("Unsupported source type. Please provide a valid video file, webcam, or image file.")
+        
+        self.model_size = model_size
+        if model:
+            self.model = YOLO(self._download_yolo_model())
+        else:
+            self.model = None
+
+    def _download_yolo_model(self):
+        """
+        Downloads the YOLO model for face detection if it does not exist locally.
+        The model is downloaded from a GitHub release and saved to the current directory. This method
+        checks for the existence of the model file before attempting to download to avoid unnecessary network requests.
+        Raises:
+            Exception: If there are issues with writing the file to disk.
+        Returns:
+            str: The path to the downloaded or existing model file.
+        """
+        output_path = f"yolo26{self.model_size}-face.pt"
+        url = f"https://github.com/akanametov/yolo-face/releases/download/1.0.0/{output_path}"
+        
+        if os.path.exists(output_path):
+            print(f"Model already exists at {output_path}. Skipping download.")
+            return output_path
+        
+        try:
+            with requests.get(url, stream=True, timeout=30) as response:
+                response.raise_for_status()
+
+                with open(output_path, "wb") as f:
+                    for chunk in response.iter_content(chunk_size=8192):
+                        if chunk:
+                            f.write(chunk)
+
+        except Exception as e:
+            raise RuntimeError(f"An error occurred while downloading the model: {e}") from e
+        
+        return output_path
+    
+    def face_detection_Haar(self, frame):
+        """
+        Detects faces in the input frame using Haar Cascades and returns bounding boxes.
+        This method uses OpenCV's Haar Cascade classifiers to detect faces in the input frame. It converts the frame to grayscale 
+        and applies the face cascade to find face regions, returning their bounding box coordinates for further processing.
+        Args:
+            frame (numpy.ndarray): The input image frame (BGR format).
+        Returns:
+            list of tuples: A list of bounding box coordinates for detected faces, where each tuple contains (x, y, w, h) 
+            for the top-left corner and dimensions of the bounding box.
+        """        
+        gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+        faces = self.face_cascade.detectMultiScale(gray, 1.3, 5)
+        bboxes = []
+        for (x, y, w, h) in faces:
+            bboxes.append((x, y, w, h))
+        return bboxes
+        
+    def face_detection(self, frame):
+        """
+        Detects faces in the input frame using the YOLO model and returns bounding boxes.
+        This method uses the pre-loaded YOLO model to perform face detection on the input frame. It processes the frame through the model and extracts bounding box coordinates for detected faces, which can be used for further processing such as blurring or applying filters.
+        Args:
+            frame (numpy.ndarray): The input image frame (BGR format).
+        Returns:
+            list of tuples: A list of bounding box coordinates for detected faces, where each tuple contains (x, y, w, h) for the top-left corner and dimensions of the bounding box.
+        """
+        results = self.model.predict(frame, conf=0.4, classes=[0], verbose=False)
+        boxes = results[0].boxes.xyxy.cpu().numpy()
+        bboxes = []
+        for box in boxes:
+            x1, y1, x2, y2 = box
+            x, y, w, h = int(x1), int(y1), int(x2 - x1), int(y2 - y1)
+            bboxes.append((x, y, w, h))
+        
+        if len(bboxes) == 0:
+            # Fallback to Haar Cascade detection if YOLO fails to detect any faces
+            bboxes = self.face_detection_Haar(frame)
+            print("YOLO failed to detect faces, falling back to Haar Cascade detection.")
+        
+        return bboxes
+    
+    def face_blurring_filter(self, frame, blur_strength=(99, 99), sigma=30):
+        """
+        Applies a blurring filter to detected faces in the input frame.
+        This method first detects faces in the input frame using the face_detection method, and then applies a Gaussian blur
+        to each detected face region. The blurred face regions are blended back into the original frame 
+        to create a privacy-preserving effect while maintaining the overall integrity of the image.
+        Args:
+            frame (numpy.ndarray): The input image frame (BGR format).
+        Returns:
+            numpy.ndarray: The output image frame with detected faces blurred.
+        """
+        bboxes = self.face_detection(frame)
+        for (x, y, w, h) in bboxes:
+            face_region = frame[y:y+h, x:x+w]
+            blurred_face = cv2.GaussianBlur(face_region, blur_strength, sigma)
+            frame[y:y+h, x:x+w] = blurred_face
+        return frame
 
     def apply_cartoon_filter(self, frame):
         """
@@ -75,9 +183,20 @@ class Filters():
         Args:            frame (numpy.ndarray): The input image frame (BGR format).
         Returns:            numpy.ndarray: The output image frame with the cartoon effect applied.
         """
+        if frame is None:
+            return frame
+
+        if frame.dtype != np.uint8:
+            frame = frame.astype(np.uint8)
+
+        if frame.ndim == 2:
+            frame = cv2.cvtColor(frame, cv2.COLOR_GRAY2BGR)
+        elif frame.shape[2] == 4:
+            frame = cv2.cvtColor(frame, cv2.COLOR_BGRA2BGR)
+
         gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
         gray = cv2.medianBlur(gray, 5)
-        edges = cv2.adaptiveThreshold(gray, 255,cv2.ADAPTIVE_THRESH_MEAN_C,cv2.THRESH_BINARY,5,2)
+        edges = cv2.adaptiveThreshold(gray, 255, cv2.ADAPTIVE_THRESH_MEAN_C, cv2.THRESH_BINARY, 5, 2)
         color = cv2.bilateralFilter(frame, 9, 300, 300)
         cartoon = cv2.bitwise_and(color, color, mask=edges)
         return cartoon
@@ -202,7 +321,8 @@ class Filters():
 
         return result    
 
-    def start_filters(self, filter=None, sigma_s=None, sigma_r=None, shade_factor=None, reflection=False, transparency=0.5):
+    def start_filters(self, filter=None, sigma_s=None, sigma_r=None, shade_factor=None, reflection=False, 
+                      transparency=0.5, blur_strength=(99, 99), sigma=30):
         """
         Start the video stream or display the image with the selected filter applied.
         Args:
@@ -212,6 +332,8 @@ class Filters():
             shade_factor (float): Parameter for pencil sketch filter that controls the intensity of the shading. Higher values result in darker shading. Default is 0.08.
             reflection (bool): Whether to add a reflection effect to the sunglasses filter. Default is False.
             transparency (float): The transparency level for the sunglasses filter, between 0 (fully transparent) and 1 (fully opaque). Default is 0.5.
+            blur_strength (tuple): The strength of the blur for the face blurring filter. Default is (99, 99).
+            sigma (float): The sigma value for the Gaussian blur in the face blurring filter. Default is 30.
         """
         if not self.is_image:
             filter_type = filter.lower() if filter else None
@@ -221,20 +343,28 @@ class Filters():
                     break
                 # Flip frame horizontally for a mirror effect (standard for webcam)
                 frame = cv2.flip(frame, 1) 
-                filtered_frame = self.selected_filter_action(filter_type, frame, sigma_s, sigma_r, shade_factor, reflection=reflection, transparency=transparency)
+                filtered_frame = self.selected_filter_action(filter_type, frame, sigma_s, sigma_r, shade_factor, 
+                                                             reflection=reflection, transparency=transparency, 
+                                                             blur_strength=blur_strength, sigma=sigma)
                 cv2.imshow(f'{filter_type.capitalize() if filter_type else "Original"} Video', filtered_frame)    
                 if cv2.waitKey(1) & 0xFF == ord('q'):
                     break
             self.cap.release()
         else:
             filter_type = filter.lower() if filter else None
-            filtered_image = self.selected_filter_action(filter_type, self.image, sigma_s, sigma_r, shade_factor, reflection=reflection, transparency=transparency)
+            filtered_image = self.selected_filter_action(filter_type, self.image, sigma_s, sigma_r, shade_factor, 
+                                                         reflection=reflection, transparency=transparency, 
+                                                         blur_strength=blur_strength, sigma=sigma)
             cv2.imshow(f'{filter_type.capitalize() if filter_type else "Original"} Image', filtered_image)
             cv2.waitKey(0)
-            
-        cv2.destroyAllWindows()
+            cv2.destroyAllWindows()
+            return filtered_image
 
-    def selected_filter_action(self, filter_type, frame, sigma_s, sigma_r, shade_factor, reflection=False, transparency=0.5):
+        cv2.destroyAllWindows()
+        return None
+
+    def selected_filter_action(self, filter_type, frame, sigma_s, sigma_r, shade_factor, 
+                               reflection=False, transparency=0.5, blur_strength=(99, 99), sigma=30):
         """
         Apply the selected filter to the given frame.
         Args:
@@ -245,6 +375,8 @@ class Filters():
             shade_factor (float): Parameter for pencil sketch filter that controls the intensity of the shading.
             reflection (bool): Whether to add a reflection effect to the sunglasses filter.
             transparency (float): The transparency level for the sunglasses filter.
+            blur_strength (tuple): The strength of the blur for the face blurring filter.
+            sigma (float): The sigma value for the Gaussian blur in the face blurring filter.
         Returns:
             numpy.ndarray: The filtered frame.
         """
@@ -265,6 +397,8 @@ class Filters():
             filtered_frame = self.apply_skin_smoothing_filter(frame)
         elif filter_type == "sunglasses":
             filtered_frame = self.apply_sunglasses_filter(frame, reflection=reflection, transparency=transparency)
+        elif filter_type == "face_blur":
+            filtered_frame = self.face_blurring_filter(frame, blur_strength=blur_strength, sigma=sigma)
         else:
             filtered_frame = frame        
         return filtered_frame
@@ -521,16 +655,27 @@ if __name__ == '__main__':
     # else:
     #     print("Scanner failed to produce an image.")
 
+    inbound_path = "inbound_pics"
+    outbound_path = "result_pics"
+    source = 0 # inbound_path + "/musk.jpg"  # Use 0 for webcam, or replace with video file path like 'video.mp4', or image file path like 'image.jpg'
+    glusses_path = inbound_path + "/sunglass.png" # None to use programmatically generated glasses, or provide your own PNG with alpha channel for custom glasses
+    reflect_img = inbound_path + "/reflection.jpg" # None to use flipped frame as reflection
 
-    source = "musk.jpg" # 0  # Use 0 for webcam, or replace with video file path like 'video.mp4', or image file path like 'image.jpg'
-    glusses_path = "sunglass.png"
-    reflect_img = None # "reflection.jpg"
-
-    filter = Filters(glusses_path, reflect_img, source)
-    
     # Change the string to test different features: 
-    filters_list = ['cartoon', 'cartoon_stylized', 'pencil', 'skin', 'sunglasses', None]
-    selected_filter = filters_list[4] 
+    filters_list = ['cartoon', 'cartoon_stylized', 'pencil', 'skin', 'sunglasses', 'face_blur', None]
     
-    print(f"Applying {selected_filter} filter. Press 'q' to quit.")
-    filter.start_filters(filter=selected_filter, reflection=True, transparency=0.7)
+    selected_filter = filters_list[5]
+    
+    if selected_filter == 'face_blur':
+        filter = Filters(source, model=True, model_size='n')
+        print(f"Applying {selected_filter} filter. Press 'q' to quit.")
+        result = filter.start_filters(filter=selected_filter, blur_strength=(99, 99), sigma=30)
+    else:
+        filter = Filters(source, glusses_path, reflect_img)
+        print(f"Applying {selected_filter} filter. Press 'q' to quit.")
+        result = filter.start_filters(filter=selected_filter, reflection=True, transparency=0.7)
+    
+    if result is not None:
+        cv2.imwrite(outbound_path + f"/image_{selected_filter}.jpg", result)
+    else:
+        print("No image returned to save.")
