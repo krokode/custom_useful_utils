@@ -1,6 +1,10 @@
 # Custom Useful Utils
 
-A small repository of Python utilities for GitHub follower snapshots and OpenCV-based image/video helpers.
+A small repository of Python utilities for:
+- Computer Vision helpers
+- Image-Video Processing helpers 
+- GitHub follower/following snapshots and comparison.
+- ...(TODO)
 
 ## Repository Structure
 
@@ -15,9 +19,9 @@ A small repository of Python utilities for GitHub follower snapshots and OpenCV-
     - Compares two snapshot JSON files and prints usernames that were added or removed.
   - `followers/` and `following/`
     - Automatically created directories for stored GitHub snapshot files.
-- `Img_Vid_manipulations_obj_tracking/`
+- `CV_IP_Utils/`
   - `cv_classes.py`
-    - Contains OpenCV utilities and classes:
+    - Contains Computer Vision & Image-Video Processing utilities and classes:
       - `Filters` for cartoon, pencil sketch, skin smoothing, sunglasses overlay, face bluring and image/video display.
       - `Blemish` for blemish removal using seamless cloning or inpainting.
       - `MouseHandler` for OpenCV mouse-based point selection.
@@ -48,21 +52,21 @@ A small repository of Python utilities for GitHub follower snapshots and OpenCV-
 
 Here are some example outputs from the various filters applied to sample images:
 
-![Cartoon Filter](Img_Vid_manipulations_obj_tracking/result_pics/image_cartoon.jpg)
+![Cartoon Filter](CV_IP_Utils/result_pics/image_cartoon.jpg)
 
-![Cartoon Stylized Filter](Img_Vid_manipulations_obj_tracking/result_pics/image_cartoon_stylized.jpg)
+![Cartoon Stylized Filter](CV_IP_Utils/result_pics/image_cartoon_stylized.jpg)
 
-![Pencil Sketch Filter](Img_Vid_manipulations_obj_tracking/result_pics/image_pencil.jpg)
+![Pencil Sketch Filter](CV_IP_Utils/result_pics/image_pencil.jpg)
 
-![Skin Smoothing Filter](Img_Vid_manipulations_obj_tracking/result_pics/image_skin.jpg)
+![Skin Smoothing Filter](CV_IP_Utils/result_pics/image_skin.jpg)
 
-![Sunglasses Filter](Img_Vid_manipulations_obj_tracking/result_pics/image_sunglasses.jpg)
+![Sunglasses Filter](CV_IP_Utils/result_pics/image_sunglasses.jpg)
 
-![Sunglasses Filter 1](Img_Vid_manipulations_obj_tracking/result_pics/image_sunglasses_1.jpg)
+![Sunglasses Filter 1](CV_IP_Utils/result_pics/image_sunglasses_1.jpg)
 
-![Sunglasses Filter 2](Img_Vid_manipulations_obj_tracking/result_pics/image_sunglasses_2.jpg)
+![Sunglasses Filter 2](CV_IP_Utils/result_pics/image_sunglasses_2.jpg)
 
-![Face Blur Filter](Img_Vid_manipulations_obj_tracking/result_pics/image_face_blur.jpg)
+![Face Blur Filter](CV_IP_Utils/result_pics/image_face_blur.jpg)
 
 ## Usage
 
@@ -95,10 +99,10 @@ python GitHub_Utils/compare_follow.py
 from custom_utils import imread_custom
 ```
 
-- Use the `Filters` class from `Img_Vid_manipulations_obj_tracking/cv_classes.py`:
+- Use the `Filters` class from `CV_IP_Utils/cv_classes.py`:
 
 ```python
-from Img_Vid_manipulations_obj_tracking.cv_classes import Filters
+from CV_IP_Utils.cv_classes import Filters
 
 filters = Filters(glasses_path=None, reflection_path=None, source='webcam')
 filters.start_filters(filter='cartoon')
@@ -114,7 +118,7 @@ Install the required packages with:
 pip install opencv-python numpy requests python-dotenv ultralytics
 ```
 
-> `ultralytics` is only required if you use the `BallTracker` class in `cv_classes.py` or face_blur filter.
+> `ultralytics` is only required if you use the `BallTracker` class in `cv_classes.py` or face_blur filter in `Filters` class.
 
 ## Notes
 
