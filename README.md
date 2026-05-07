@@ -26,7 +26,7 @@ A small repository of Python utilities for:
       - `Blemish` for blemish removal using seamless cloning or inpainting.
       - `MouseHandler` for OpenCV mouse-based point selection.
       - `DocumentScanner` for document contour detection, perspective correction, and post-processing.
-      - `BallTracker` for YOLO-based detection and OpenCV tracking.
+      - `Tracker` for YOLO-based detection and OpenCV tracking.
 
 ## Features
 
@@ -110,6 +110,34 @@ filters.start_filters(filter='cartoon')
 
 - `source` may be a webcam index, `'webcam'`, a video file path, or an image file path.
 
+- Use `DocumentScanner` class from `CV_IP_Utils/cv_classes.py`:
+
+```
+# Initialize the scanner
+scanner = DocumentScanner(image_path, manual_selection=False)
+    
+# Run the detection and transformation
+warped = scanner.run_scanner(use_contour_detection=True)
+    
+if warped is not None:
+    final_scan = scanner.post_process(warped)
+```
+
+- Use `Tracker` class from `CV_IP_Utils/cv_classes.py`:
+
+```
+soccer_tracker = Tracker()
+bbox, color = soccer_tracker.detect_and_track(frame, class_id=32)
+```
+- `class_id` Yolov8s has 80 classes, class_id =32 is a sport_ball. To track another class.
+```
+tracker = Tracker()
+classes = tracker.get_classes()
+
+# track chosen class example
+bbox, color = tracker.detect_and_track(frame, class_id=0)
+```
+
 ## Dependencies
 
 Install the required packages with:
@@ -118,7 +146,7 @@ Install the required packages with:
 pip install opencv-python numpy requests python-dotenv ultralytics
 ```
 
-> `ultralytics` is only required if you use the `BallTracker` class in `cv_classes.py` or face_blur filter in `Filters` class.
+> `ultralytics` is only required if you use the `Tracker` class in `cv_classes.py` or face_blur filter in `Filters` class.
 
 ## Notes
 

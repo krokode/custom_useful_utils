@@ -544,7 +544,7 @@ class DocumentScanner():
         return T
 
 
-class BallTracker:
+class Tracker:
     def __init__(self, model_path='yolov8s.pt'):
         self.model = YOLO(model_path) 
         self.tracker = None
@@ -553,6 +553,9 @@ class BallTracker:
         self.status = "Initializing"
         self.frame_count = 0 
         self.redetect_interval = 30 # Force YOLO every 30 frames to prevent drift
+
+    def get_classes(self):
+        return self.model.names
 
     def get_tracker(self, tracker_type='CSRT'):
         # Try to get the better trackers first, fallback to MIL
@@ -612,7 +615,7 @@ class BallTracker:
 
 if __name__ == '__main__':
     # cap = cv2.VideoCapture("soccer-ball.mp4")
-    # soccer_tracker = BallTracker()
+    # soccer_tracker = Tracker()
 
     # while cap.isOpened():
     #     ret, frame = cap.read()
