@@ -54,31 +54,33 @@ A small repository of Python utilities for:
 
 Here are some example outputs from the various filters applied to sample images:
 
-![Cartoon Filter](CV_IP_Utils/result_pics/image_cartoon.jpg)
+| Cartoon Filter | Cartoon Stylized Filter |
+| --- | --- |
+| ![Cartoon Filter](CV_IP_Utils/result_pics/image_cartoon.jpg) | ![Cartoon Stylized Filter](CV_IP_Utils/result_pics/image_cartoon_stylized.jpg) |
 
-![Cartoon Stylized Filter](CV_IP_Utils/result_pics/image_cartoon_stylized.jpg)
+| Pencil Sketch Filter | Skin Smoothing Filter |
+| --- | --- |
+| ![Pencil Sketch Filter](CV_IP_Utils/result_pics/image_pencil.jpg) | ![Skin Smoothing Filter](CV_IP_Utils/result_pics/image_skin.jpg) |
 
-![Pencil Sketch Filter](CV_IP_Utils/result_pics/image_pencil.jpg)
+| Sunglasses Filter | Sunglasses Filter 1 |
+| --- | --- |
+| ![Sunglasses Filter](CV_IP_Utils/result_pics/image_sunglasses.jpg) | ![Sunglasses Filter 1](CV_IP_Utils/result_pics/image_sunglasses_1.jpg) |
 
-![Skin Smoothing Filter](CV_IP_Utils/result_pics/image_skin.jpg)
-
-![Sunglasses Filter](CV_IP_Utils/result_pics/image_sunglasses.jpg)
-
-![Sunglasses Filter 1](CV_IP_Utils/result_pics/image_sunglasses_1.jpg)
-
-![Sunglasses Filter 2](CV_IP_Utils/result_pics/image_sunglasses_2.jpg)
-
-![Face Blur Filter](CV_IP_Utils/result_pics/image_face_blur.jpg)
+| Sunglasses Filter 2 | Face Blur Filter |
+| --- | --- |
+| ![Sunglasses Filter 2](CV_IP_Utils/result_pics/image_sunglasses_2.jpg) | ![Face Blur Filter](CV_IP_Utils/result_pics/image_face_blur.jpg) |
 
 ### Example DocumentScanner Results
 
 Here are some example inputs/outputs from `DocumentScanner` class
 
-![Raw Photo](CV_IP_Utils/inbound_pics/photo_doc_1.jpeg)
-![Manual Contour Selection](CV_IP_Utils/result_pics/scanned-processed.jpeg)
+| Raw Photo | Manual Contour Selection |
+| --- | --- |
+| ![Raw Photo](CV_IP_Utils/inbound_pics/photo_doc_1.jpeg) | ![Manual Contour Selection](CV_IP_Utils/result_pics/scanned-processed.jpeg) |
 
-![Raw Photo](CV_IP_Utils/inbound_pics/photo-form.jpg)
-![Contour Detection](CV_IP_Utils/result_pics/scanned-processed.jpg)
+| Raw Photo | Contour Detection |
+| --- | --- |
+| ![Raw Photo](CV_IP_Utils/inbound_pics/photo-form.jpg) | ![Contour Detection](CV_IP_Utils/result_pics/scanned-processed.jpg) |
 
 
 ## Usage
