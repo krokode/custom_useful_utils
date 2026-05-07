@@ -614,6 +614,10 @@ class Tracker:
 
 
 if __name__ == '__main__':
+    inbound_path = "inbound_pics"
+    outbound_path = "result_pics"
+    
+    # Example usage of the Tracker class with a video file (commented out for now)
     # cap = cv2.VideoCapture("soccer-ball.mp4")
     # soccer_tracker = Tracker()
 
@@ -636,49 +640,48 @@ if __name__ == '__main__':
     # cap.release()
     # cv2.destroyAllWindows()
     
-    # # #Initialize the scanner
-    # image_path = "scanned-form.jpg"  # Replace with your document image path
-    # output_path = "scanned-form-processed.jpg"  # Output path for the scanned image
-    # scanner = DocumentScanner(image_path, manual_selection=False)
+    # #Initialize the scanner
+    image_path = inbound_path + "/photo-form.jpg"  # Replace with your document image path
+    output_path = outbound_path + "/scanned-processed.jpg"  # Output path for the scanned image
+    scanner = DocumentScanner(image_path, manual_selection=False)
     
-    # # Run the detection and transformation
-    # warped = scanner.run_scanner(use_contour_detection=True)
+    # Run the detection and transformation
+    warped = scanner.run_scanner(use_contour_detection=True)
     
-    # if warped is not None:
-    #     final_scan = scanner.post_process(warped)
+    if warped is not None:
+        final_scan = scanner.post_process(warped)
         
-    #     cv2.imshow("Final Scanned Document", final_scan)
+        cv2.imshow("Final Scanned Document", final_scan)
         
-    #     # Save to disk
-    #     cv2.imwrite(output_path, final_scan)
+        # Save to disk
+        cv2.imwrite(output_path, final_scan)
         
-    #     print("Press any key to close the window.")
-    #     cv2.waitKey(0)
-    #     cv2.destroyAllWindows()
+        print("Press any key to close the window.")
+        cv2.waitKey(0)
+        cv2.destroyAllWindows()
+    else:
+        print("Scanner failed to produce an image.")
+
+    # Example usage of the Filters class (commented out for now)
+    # source = 0 # inbound_path + "/musk.jpg"  # Use 0 for webcam, or replace with video file path like 'video.mp4', or image file path like 'image.jpg'
+    # glusses_path = inbound_path + "/sunglass.png" # None to use programmatically generated glasses, or provide your own PNG with alpha channel for custom glasses
+    # reflect_img = inbound_path + "/reflection.jpg" # None to use flipped frame as reflection
+
+    # # Change the string to test different features: 
+    # filters_list = ['cartoon', 'cartoon_stylized', 'pencil', 'skin', 'sunglasses', 'face_blur', None]
+    
+    # selected_filter = filters_list[5]
+    
+    # if selected_filter == 'face_blur':
+    #     filter = Filters(source, model=True, model_size='n')
+    #     print(f"Applying {selected_filter} filter. Press 'q' to quit.")
+    #     result = filter.start_filters(filter=selected_filter, blur_strength=(99, 99), sigma=30)
     # else:
-    #     print("Scanner failed to produce an image.")
-
-    inbound_path = "inbound_pics"
-    outbound_path = "result_pics"
-    source = 0 # inbound_path + "/musk.jpg"  # Use 0 for webcam, or replace with video file path like 'video.mp4', or image file path like 'image.jpg'
-    glusses_path = inbound_path + "/sunglass.png" # None to use programmatically generated glasses, or provide your own PNG with alpha channel for custom glasses
-    reflect_img = inbound_path + "/reflection.jpg" # None to use flipped frame as reflection
-
-    # Change the string to test different features: 
-    filters_list = ['cartoon', 'cartoon_stylized', 'pencil', 'skin', 'sunglasses', 'face_blur', None]
+    #     filter = Filters(source, glusses_path, reflect_img)
+    #     print(f"Applying {selected_filter} filter. Press 'q' to quit.")
+    #     result = filter.start_filters(filter=selected_filter, reflection=True, transparency=0.7)
     
-    selected_filter = filters_list[5]
-    
-    if selected_filter == 'face_blur':
-        filter = Filters(source, model=True, model_size='n')
-        print(f"Applying {selected_filter} filter. Press 'q' to quit.")
-        result = filter.start_filters(filter=selected_filter, blur_strength=(99, 99), sigma=30)
-    else:
-        filter = Filters(source, glusses_path, reflect_img)
-        print(f"Applying {selected_filter} filter. Press 'q' to quit.")
-        result = filter.start_filters(filter=selected_filter, reflection=True, transparency=0.7)
-    
-    if result is not None:
-        cv2.imwrite(outbound_path + f"/image_{selected_filter}.jpg", result)
-    else:
-        print("No image returned to save.")
+    # if result is not None:
+    #     cv2.imwrite(outbound_path + f"/image_{selected_filter}.jpg", result)
+    # else:
+    #     print("No image returned to save.")

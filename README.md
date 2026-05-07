@@ -4,21 +4,12 @@ A small repository of Python utilities for:
 - Computer Vision helpers
 - Image-Video Processing helpers 
 - GitHub follower/following snapshots and comparison.
-- ...(TODO)
 
 ## Repository Structure
 
 - `custom_utils.py`
   - Defines `imread_custom()` for robust image loading with OpenCV from file paths containing non-ASCII characters or long Windows paths.
-- `GitHub_Utils/`
-  - `followers_check.py`
-    - Fetches GitHub followers via the GitHub API and saves usernames to `GitHub_Utils/followers/followersYYYY-MM-DD.json`.
-  - `followings_check.py`
-    - Fetches GitHub users you are following and saves usernames to `GitHub_Utils/following/followingYYYY-MM-DD.json`.
-  - `compare_follow.py`
-    - Compares two snapshot JSON files and prints usernames that were added or removed.
-  - `followers/` and `following/`
-    - Automatically created directories for stored GitHub snapshot files.
+
 - `CV_IP_Utils/`
   - `cv_classes.py`
     - Contains Computer Vision & Image-Video Processing utilities and classes:
@@ -28,12 +19,17 @@ A small repository of Python utilities for:
       - `DocumentScanner` for document contour detection, perspective correction, and post-processing.
       - `Tracker` for YOLO-based detection and OpenCV tracking.
 
-## Features
+- `GitHub_Utils/`
+  - `followers_check.py`
+    - Fetches GitHub followers via the GitHub API and saves usernames to `GitHub_Utils/followers/followersYYYY-MM-DD.json`.
+  - `followings_check.py`
+    - Fetches GitHub users you are following and saves usernames to `GitHub_Utils/following/followingYYYY-MM-DD.json`.
+  - `compare_follow.py`
+    - Compares two snapshot JSON files and prints usernames that were added or removed.
+  - `followers/` and `following/`
+    - Automatically created directories for stored GitHub snapshot files.
 
-### GitHub utilities
-- Save followers and following lists as dated JSON snapshots.
-- Compare two snapshot files to identify added and removed usernames.
-- Supports authenticated API requests via `GITHUB_TOKEN` in a `.env` file.
+## Features
 
 ### Image/video utilities
 - `imread_custom()` for safer OpenCV image loading from complex file paths.
@@ -47,6 +43,12 @@ A small repository of Python utilities for:
 - Blemish removal with seamless clone or inpaint workflows.
 - Document scanning with automatic contour detection or manual corner selection.
 - YOLO-based ball/object detection with tracker fallback.
+
+### GitHub utilities
+- Save followers and following lists as dated JSON snapshots.
+- Compare two snapshot files to identify added and removed usernames.
+- Supports authenticated API requests via `GITHUB_TOKEN` in a `.env` file.
+
 
 ### Example Filter Results
 
@@ -67,6 +69,17 @@ Here are some example outputs from the various filters applied to sample images:
 ![Sunglasses Filter 2](CV_IP_Utils/result_pics/image_sunglasses_2.jpg)
 
 ![Face Blur Filter](CV_IP_Utils/result_pics/image_face_blur.jpg)
+
+### Example DocumentScanner Results
+
+Here are some example inputs/outputs from `DocumentScanner` class
+
+![Raw Photo](CV_IP_Utils/inbound_pics/photo_doc_1.jpeg)
+![Manual Contour Selection](CV_IP_Utils/result_pics/scanned-processed.jpeg)
+
+![Raw Photo](CV_IP_Utils/inbound_pics/photo-form.jpg)
+![Contour Detection](CV_IP_Utils/result_pics/scanned-processed.jpg)
+
 
 ## Usage
 
