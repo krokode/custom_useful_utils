@@ -435,24 +435,26 @@ class Blemish():
 
 # Utility Class for Mouse Handling
 class MouseHandler():
-    def __init__(self, window_name, maxpoints=None):
+    def __init__(self, window_name, img, maxpoints=None):
         self.maxpoints = maxpoints
         self.window_name = window_name
         self.points = []
-        cv2.namedWindow(self.window_name)
-        cv2.setMouseCallback(self.window_name, self.mouse_callback)
+        self.img = img
+        cv2.namedWindow(window_name, cv2.WINDOW_NORMAL)
+        cv2.resizeWindow(window_name, 600, 800)
+        cv2.setMouseCallback(self.window_name, self.mouse_callback, param=self.img)
 
     def mouse_callback(self, event, x, y, flags, param):
         """
         Handle mouse events for point selection.
         Adds points on left click if under maxpoints limit.
-        Draws a green circle at the clicked point if param (image) is provided.
+        Draws a yellow circle radius-10 at the clicked point if param (image) is provided.
         """
         if event == cv2.EVENT_LBUTTONDOWN:
             if self.maxpoints is None or len(self.points) < self.maxpoints:
                 self.points.append((x, y))
                 if param is not None:
-                    cv2.circle(param, (x, y), 5, (0, 255, 0), -1)
+                    cv2.circle(param, (x, y), 10, (0, 255, 255), -1)
                     cv2.imshow(self.window_name, param)
             else:
                 print("Maximum points reached.")
@@ -463,13 +465,13 @@ class DocumentScanner():
         self.clone = self.image.copy()
         self.manual_selection = manual_selection
         if self.manual_selection:
-            self.mouse_handler = MouseHandler("Select Document Corners", maxpoints=4)
+            self.mouse_handler = MouseHandler("Manually Select Document Corners", self.clone, maxpoints=4)
         else:
             self.mouse_handler = None
 
     def get_document_corners(self):
         while True:
-            cv2.imshow("Select Document Corners", self.clone)
+            cv2.imshow("Manually Select Document Corners", self.clone)
             if len(self.mouse_handler.points) == 4:
                 break
             if cv2.waitKey(1) & 0xFF == ord('q'):
@@ -522,9 +524,8 @@ class DocumentScanner():
         
         # If auto-detection was skipped OR it failed to find 4 points
         if corners is None:
-            print("Switching to manual selection...")
             # Initialize handler only when needed to save resources
-            self.mouse_handler = MouseHandler("Select Document Corners", maxpoints=4)
+            self.mouse_handler = MouseHandler("Manually Select Document Corners", self.clone, maxpoints=4)
             corners = self.get_document_corners()
         
         # Final check and transform
@@ -641,8 +642,8 @@ if __name__ == '__main__':
     # cv2.destroyAllWindows()
     
     # #Initialize the scanner
-    image_path = inbound_path + "/photo-form.jpg"  # Replace with your document image path
-    output_path = outbound_path + "/scanned-processed.jpg"  # Output path for the scanned image
+    image_path = inbound_path + "/photo_doc_1.jpeg"  # Replace with your document image path
+    output_path = outbound_path + "/scanned-processed.jpeg"  # Output path for the scanned image
     scanner = DocumentScanner(image_path, manual_selection=False)
     
     # Run the detection and transformation
@@ -650,7 +651,8 @@ if __name__ == '__main__':
     
     if warped is not None:
         final_scan = scanner.post_process(warped)
-        
+        cv2.namedWindow("Final Scanned Document", cv2.WINDOW_NORMAL)
+        cv2.resizeWindow("Final Scanned Document", 600, 800)
         cv2.imshow("Final Scanned Document", final_scan)
         
         # Save to disk
