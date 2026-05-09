@@ -491,8 +491,8 @@ class DocumentScanner():
     
     def contour_detection(self):
         gray = cv2.cvtColor(self.image, cv2.COLOR_BGR2GRAY)
-        blurred = cv2.GaussianBlur(gray, (5, 5), 0)
-        edged = cv2.Canny(blurred, 75, 200)
+        blurred = cv2.GaussianBlur(gray, (7, 7), 0)
+        edged = cv2.Canny(blurred, 50, 150)
         contours, _ = cv2.findContours(edged.copy(), cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE)
         contours = sorted(contours, key=cv2.contourArea, reverse=True)[:5]
         for contour in contours:
@@ -642,9 +642,9 @@ if __name__ == '__main__':
     # cv2.destroyAllWindows()
     
     # #Initialize the scanner
-    image_path = inbound_path + "/photo_doc_1.jpeg"  # Replace with your document image path
-    output_path = outbound_path + "/scanned-processed.jpeg"  # Output path for the scanned image
-    scanner = DocumentScanner(image_path, manual_selection=False)
+    image_path = inbound_path + "/photo-form.jpg"  # Replace with your document image path
+    output_path = outbound_path + "/scanned-processed.jpg"  # Output path for the scanned image
+    scanner = DocumentScanner(image_path, manual_selection=False)  # Set to True to enable manual corner selection if auto-detection fails
     
     # Run the detection and transformation
     warped = scanner.run_scanner(use_contour_detection=True)
