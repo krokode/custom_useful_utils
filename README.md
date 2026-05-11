@@ -76,11 +76,11 @@ Here are some example inputs/outputs from `DocumentScanner` class
 
 | Raw Photo | Manual Contour Selection |
 | --- | --- |
-| ![Raw Photo](CV_IP_Utils/inbound_pics/photo_doc_1.jpeg) | ![Manual Contour Selection](CV_IP_Utils/result_pics/scanned-processed.jpeg) |
+| ![Raw Photo](CV_IP_Utils/inbound_pics/photo_doc_1.jpeg) | ![Manual Contour Selection](CV_IP_Utils/result_pics/scanned-processed_1.jpeg) |
 
 | Raw Photo | Contour Detection |
 | --- | --- |
-| ![Raw Photo](CV_IP_Utils/inbound_pics/photo-form.jpg) | ![Contour Detection](CV_IP_Utils/result_pics/scanned-processed.jpg) |
+| ![Raw Photo](CV_IP_Utils/inbound_pics/photo_doc_2.jpeg) | ![Contour Detection](CV_IP_Utils/result_pics/scanned-processed_2.jpeg) |
 
 
 ## Usage

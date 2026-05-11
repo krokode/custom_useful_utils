@@ -454,7 +454,9 @@ class MouseHandler():
             if self.maxpoints is None or len(self.points) < self.maxpoints:
                 self.points.append((x, y))
                 if param is not None:
-                    cv2.circle(param, (x, y), 10, (0, 255, 255), -1)
+                    thickness = -1 # Solid circle
+                    radius = int(param.shape[1] * 0.02) # 2% of image width
+                    cv2.circle(param, (x, y), radius, (0, 255, 255), thickness)
                     cv2.imshow(self.window_name, param)
             else:
                 print("Maximum points reached.")
@@ -468,7 +470,7 @@ class DocumentScanner():
             self.mouse_handler = MouseHandler("Manually Select Document Corners", self.clone, maxpoints=4)
         else:
             self.mouse_handler = None
-
+        
     def get_document_corners(self):
         while True:
             cv2.imshow("Manually Select Document Corners", self.clone)
@@ -488,20 +490,44 @@ class DocumentScanner():
         rect[1] = pts[np.argmin(diff)]
         rect[3] = pts[np.argmax(diff)]
         return rect
-    
+
     def contour_detection(self):
-        gray = cv2.cvtColor(self.image, cv2.COLOR_BGR2GRAY)
-        blurred = cv2.GaussianBlur(gray, (7, 7), 0)
-        edged = cv2.Canny(blurred, 50, 150)
-        contours, _ = cv2.findContours(edged.copy(), cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE)
-        contours = sorted(contours, key=cv2.contourArea, reverse=True)[:5]
-        for contour in contours:
-            peri = cv2.arcLength(contour, True)
-            approx = cv2.approxPolyDP(contour, 0.02 * peri, True)
+        # Downscale for faster/cleaner processing
+        height, width = self.image.shape[:2]
+        ratio = height / 800.0
+        orig = self.image.copy()
+        res_image = cv2.resize(self.image, (int(width / ratio), 800))
+
+        # Strong Bilateral Filter (Removes text/noise while keeping paper edges)
+        gray = cv2.cvtColor(res_image, cv2.COLOR_BGR2GRAY)
+        filtered = cv2.bilateralFilter(gray, 9, 75, 75)
+
+        # Morphological Gradient (Great for finding boundaries in low contrast)
+        kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (5, 5))
+        gradient = cv2.morphologyEx(filtered, cv2.MORPH_GRADIENT, kernel)
+        
+        # Binary Threshold
+        _, thresh = cv2.threshold(gradient, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+
+        # Connect the lines (Closing)
+        closed = cv2.morphologyEx(thresh, cv2.MORPH_CLOSE, kernel, iterations=2)
+
+        # Find Contours
+        cnts, _ = cv2.findContours(closed.copy(), cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE)
+        cnts = sorted(cnts, key=cv2.contourArea, reverse=True)[:5]
+
+        for c in cnts:
+            # Use Convex Hull to ignore the paperclip and stacked pages
+            hull = cv2.convexHull(c)
+            peri = cv2.arcLength(hull, True)
+            approx = cv2.approxPolyDP(hull, 0.02 * peri, True)
+
             if len(approx) == 4:
-                return approx.reshape(4, 2)
+                # Scale coordinates back to original image size
+                return (approx.reshape(4, 2) * ratio).astype("float32")
+        
         return None
-    
+
     def four_point_transform(self, pts):
         rect = self.order_points(pts)
         (tl, tr, br, bl) = rect
@@ -518,33 +544,21 @@ class DocumentScanner():
     
     def run_scanner(self, use_contour_detection=True):
         corners = None
-        
         if use_contour_detection:
             corners = self.contour_detection()
-        
         # If auto-detection was skipped OR it failed to find 4 points
         if corners is None:
             # Initialize handler only when needed to save resources
             self.mouse_handler = MouseHandler("Manually Select Document Corners", self.clone, maxpoints=4)
             corners = self.get_document_corners()
-        
         # Final check and transform
         if corners is not None and len(corners) == 4:
             # Ensure corners are a float32 numpy array for OpenCV
             pts = np.array(corners, dtype="float32")
             return self.four_point_transform(pts)
-        
         print("Scanning cancelled or failed.")
         return None
     
-    def post_process(self, warped):
-        gray = cv2.cvtColor(warped, cv2.COLOR_BGR2GRAY)
-        # T stands for 'Thresholded'
-        T = cv2.adaptiveThreshold(gray, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, 
-                                cv2.THRESH_BINARY, 11, 10)
-        return T
-
-
 class Tracker:
     def __init__(self, model_path='yolov8s.pt'):
         self.model = YOLO(model_path) 
@@ -642,21 +656,20 @@ if __name__ == '__main__':
     # cv2.destroyAllWindows()
     
     # #Initialize the scanner
-    image_path = inbound_path + "/photo-form.jpg"  # Replace with your document image path
-    output_path = outbound_path + "/scanned-processed.jpg"  # Output path for the scanned image
+    image_path = inbound_path + "/photo_doc_2.jpeg"  # Replace with your document image path
+    output_path = outbound_path + "/scanned-processed_2.jpeg"  # Output path for the scanned image
     scanner = DocumentScanner(image_path, manual_selection=False)  # Set to True to enable manual corner selection if auto-detection fails
     
     # Run the detection and transformation
     warped = scanner.run_scanner(use_contour_detection=True)
     
     if warped is not None:
-        final_scan = scanner.post_process(warped)
         cv2.namedWindow("Final Scanned Document", cv2.WINDOW_NORMAL)
         cv2.resizeWindow("Final Scanned Document", 600, 800)
-        cv2.imshow("Final Scanned Document", final_scan)
+        cv2.imshow("Final Scanned Document", warped)
         
         # Save to disk
-        cv2.imwrite(output_path, final_scan)
+        cv2.imwrite(output_path, warped)
         
         print("Press any key to close the window.")
         cv2.waitKey(0)
