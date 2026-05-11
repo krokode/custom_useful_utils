@@ -1,6 +1,6 @@
 import cv2
 import numpy as np
-from pathlib import Path
+
 from time import time
 
 def imread_custom(image_path, options=cv2.IMREAD_UNCHANGED):

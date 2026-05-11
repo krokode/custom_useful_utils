@@ -439,6 +439,15 @@ class Blemish():
 
 # Utility Class for Mouse Handling
 class MouseHandler():
+    """
+    A utility class to handle mouse events for selecting points on an image. 
+    It allows users to click on an image to select points, which can be used for various 
+    applications such as manual corner selection for document scanning. 
+    The class supports a maximum number of points to be selected and provides visual 
+    feedback by drawing circles on the image at the selected points. 
+    It is designed to work with OpenCV windows and can be easily integrated into 
+    applications that require user interaction for point selection.
+    """
     def __init__(self, window_name, img, maxpoints=None):
         self.maxpoints = maxpoints
         self.window_name = window_name
@@ -466,6 +475,14 @@ class MouseHandler():
                 print("Maximum points reached.")
 
 class DocumentScanner():
+    """
+    A class that provides functionality to scan documents from images using OpenCV. 
+    It supports both automatic contour detection
+    and manual corner selection through mouse interaction. 
+    The class includes methods for ordering points, performing perspective transformation, 
+    and post-processing the scanned image to enhance its appearance. 
+    It also allows saving the processed image as a PDF.
+    """
     def __init__(self, image_path, manual_selection=False):
         self.image = imread_custom(image_path)
         self.clone = self.image.copy()
@@ -589,6 +606,14 @@ class DocumentScanner():
         
 
 class Tracker:
+    """
+    A class that combines YOLO object detection with OpenCV tracking to provide robust 
+    detection and tracking of objects (e.g., a soccer ball) in video frames. 
+    The class initializes the YOLO model for detection and uses OpenCV trackers for 
+    efficient tracking between detections. It includes logic to periodically re-detect 
+    the object to prevent tracker drift and handles both detection and tracking states 
+    with visual feedback through bounding box colors.   
+    """
     def __init__(self, model_path='yolov8s.pt'):
         self.model = YOLO(model_path) 
         self.tracker = None
