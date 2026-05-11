@@ -8,8 +8,12 @@ if ROOT_DIR not in sys.path:
 
 import cv2
 import numpy as np
+
 from custom_utils import imread_custom
+
 from ultralytics import YOLO
+
+from PIL import Image
 
 class Filters():
     """
@@ -544,6 +548,8 @@ class DocumentScanner():
     
     def run_scanner(self, use_contour_detection=True):
         corners = None
+        if self.manual_selection:
+            use_contour_detection = False
         if use_contour_detection:
             corners = self.contour_detection()
         # If auto-detection was skipped OR it failed to find 4 points
@@ -559,6 +565,29 @@ class DocumentScanner():
         print("Scanning cancelled or failed.")
         return None
     
+    def post_process_denoise(self, warped):
+        """
+        Refines the warped image to look like a clean, high-contrast scan.
+        """
+        # Convert to grayscale
+        gray = cv2.cvtColor(warped, cv2.COLOR_BGR2GRAY)
+        # Denoise to remove graininess while preserving edges
+        denoised = cv2.fastNlMeansDenoising(gray, None, 10, 7, 21)
+        # Apply Adaptive Thresholding for the 'B&W' scan effect
+        # Block size (21) and C (11) are tuned for standard document text
+        scan_look = cv2.adaptiveThreshold(
+            denoised, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, 
+            cv2.THRESH_BINARY, 21, 11
+        )
+        return scan_look
+    
+    def save_as_pdf(self, processed_image, filename):
+        # Convert the image to RGB (from BGR) and save as PDF
+        rgb_image = cv2.cvtColor(processed_image, cv2.COLOR_BGR2RGB)
+        pil_image = Image.fromarray(rgb_image)
+        pil_image.save(filename, "PDF", resolution=100.0)
+        
+
 class Tracker:
     def __init__(self, model_path='yolov8s.pt'):
         self.model = YOLO(model_path) 
@@ -656,21 +685,27 @@ if __name__ == '__main__':
     # cv2.destroyAllWindows()
     
     # #Initialize the scanner
-    image_path = inbound_path + "/photo_doc_2.jpeg"  # Replace with your document image path
-    output_path = outbound_path + "/scanned-processed_2.jpeg"  # Output path for the scanned image
+    image_path = inbound_path + "/photo_doc_1.jpeg"  # Replace with your document image path
+    output_path = outbound_path + "/scanned-processed_1.pdf"  # Output path for the scanned image
     scanner = DocumentScanner(image_path, manual_selection=False)  # Set to True to enable manual corner selection if auto-detection fails
     
     # Run the detection and transformation
-    warped = scanner.run_scanner(use_contour_detection=True)
+    warped = scanner.run_scanner()
     
     if warped is not None:
+        warped = scanner.post_process_denoise(warped)
         cv2.namedWindow("Final Scanned Document", cv2.WINDOW_NORMAL)
         cv2.resizeWindow("Final Scanned Document", 600, 800)
         cv2.imshow("Final Scanned Document", warped)
         
         # Save to disk
-        cv2.imwrite(output_path, warped)
-        
+        if output_path.lower().endswith('.pdf'):
+            scanner.save_as_pdf(warped, output_path)
+            print(f"Scanned document saved as PDF at: {output_path}")
+        else:
+            cv2.imwrite(output_path, warped)
+            print(f"Scanned document saved as image at: {output_path}")
+
         print("Press any key to close the window.")
         cv2.waitKey(0)
         cv2.destroyAllWindows()

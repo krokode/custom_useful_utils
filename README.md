@@ -132,10 +132,13 @@ filters.start_filters(filter='cartoon')
 scanner = DocumentScanner(image_path, manual_selection=False)
     
 # Run the detection and transformation
-warped = scanner.run_scanner(use_contour_detection=True)
+warped = scanner.run_scanner()
     
 if warped is not None:
-    final_scan = scanner.post_process(warped)
+    final_scan = scanner.post_process_denoise(warped)
+
+if output_path.lower().endswith('.pdf'):
+    scanner.save_as_pdf(final_scan, output_path)
 ```
 
 - Use `Tracker` class from `CV_IP_Utils/cv_classes.py`:
